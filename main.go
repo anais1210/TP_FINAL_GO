@@ -37,11 +37,12 @@ type Pairs struct{
 }
 
 type AssetPrice struct {
-	ActualPrice  []string `json:"c"`
-	Volume       []string `json:"v"`
-	High         []string `json:"h"`
-	Low          []string `json:"l"`
-	OpeningPrice string   `json:"o"`
+	LastTrade []string `json:"c"`
+	Volume []string `json:"v"`
+	AvgPrice []string `json:"p"`
+	High []string `json:"h"`
+	Low []string `json:"l"`
+	OpeningPrice string `json:"o"`
 }
 
 type AssetPrices struct {
@@ -134,7 +135,11 @@ func getPair()([]string){
 	return altname
 }
 func getAssetPrice(altnames []string){
-	for _, i := range altnames{
+	prices := make([]string, 0, len(altnames))
+	now := time.Now().Unix()
+	connection := connectDB()
+	createTable(connection)
+	for _, i := range altnames {
 		resp, err := http.Get(KrakenAPI + "/0/public/Ticker?pair="+i)
 		if err != nil {
 			panic(err)
@@ -151,10 +156,36 @@ func getAssetPrice(altnames []string){
 			fmt.Printf("Error: %s", errors)
 			panic(errors)
 		}
-		fmt.Println(assetPrice)
+		
+		file, err := os.Create("Archives/assetsPrice.csv")
+		defer file.Close()
+		if err != nil {
+			log.Fatalln("failed to open file", err)
+		}
+		header := []string{"LastTradePrice", "LastTradeVolume", "Volume", "AvgPrice", "High", "Low", "OpeningPrice"}
+		w := csv.NewWriter(file)
+		defer w.Flush()
+		if err := w.Write(header); err != nil {
+			log.Fatalln("error writing csv:", err)
+		}
 
+
+		prices = append(prices, i,assetPrice.FieldMap[i].LastTrade[0],assetPrice.FieldMap[i].LastTrade[1], 
+		assetPrice.FieldMap[i].Volume[0], assetPrice.FieldMap[i].AvgPrice[0], assetPrice.FieldMap[i].High[0], 
+		assetPrice.FieldMap[i].Low[0], assetPrice.FieldMap[i].OpeningPrice)
+		if err := w.Write(prices); err != nil {
+		log.Fatalln("error writing csv:", err)
+		}
+
+		sqlStatement := fmt.Sprintf("INSERT INTO pairsPrice (id, altname,lastTradePrice, lastTradeVolume, volume, avgPrice, high, low, openingPrice) VALUES (%d, '%s','%s', '%s', '%s', '%s','%s', '%s', '%s')", now,i, assetPrice.FieldMap[i].LastTrade[0],assetPrice.FieldMap[i].LastTrade[1], assetPrice.FieldMap[i].Volume[0], assetPrice.FieldMap[i].AvgPrice[0], assetPrice.FieldMap[i].High[0], assetPrice.FieldMap[i].Low[0], assetPrice.FieldMap[i].OpeningPrice)
+		_, error := connection.Exec(sqlStatement)
+		if error != nil {
+			fmt.Println(error)
+		}
+		now++
 	}
 }
+
 func createFolder(folderName string){
 	if _, err := os.Stat(folderName); os.IsNotExist(err) {
 		err = os.Mkdir(folderName, 0755)
@@ -178,6 +209,11 @@ func createTable(db *sql.DB){
 	_, errors := db.Exec(sqlStat)
 	if errors != nil {
 	fmt.Println(errors)
+	}
+	sqlQuery := "CREATE TABLE IF NOT EXISTS public.pairsPrice (id SERIAL NOT NULL, altname character varying NOT NULL, lastTradePrice real, lastTradeVolume real, volume real, avgPrice real,high real, low real, openingPrice real, PRIMARY KEY (id) ); ALTER TABLE IF EXISTS public.pairs OWNER to toto;"
+	_, err := db.Exec(sqlQuery)
+	if err != nil {
+	fmt.Println(err)
 	}
 }
 func selectDataFromDB(db *sql.DB)(){

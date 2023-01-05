@@ -34,7 +34,7 @@ func createTable(db *sql.DB){
 	}
 }
 
-func insertData(dataPairs []string){
+func insertDatas(dataPairs []string){
 	now := time.Now().Unix()
 	for _, data := range dataPairs {
 		// Insertion des données dans la base de données

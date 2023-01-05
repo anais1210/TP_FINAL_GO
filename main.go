@@ -98,12 +98,24 @@ func getPair()([]string){
 	}
 	
 	var assetDatas []string
+	connection := connectDB()
+	createTable(connection)
+
+	now := time.Now().Unix()
 	for _, i := range m.PairList {
 		assetDatas = nil
 		assetDatas = append(assetDatas, i.Altname, i.Wsname,i.Base, i.Quote)
 		if err := w.Write(assetDatas); err != nil {
-			log.Fatalln("error writing csv:", err)
+		log.Fatalln("error writing csv:", err)
 		}
+
+		sqlStatement := fmt.Sprintf("INSERT INTO pairs (id, altname, wsname, base, quoteK) VALUES (%d, '%s', '%s', '%s', '%s')", now, i.Altname, i.Wsname, i.Base,i.Quote)
+		_, err := connection.Exec(sqlStatement)
+		if err != nil {
+			fmt.Println(err)
+		}
+		now++
+			
 	}
 	return assetDatas
 }
@@ -115,38 +127,24 @@ func createFolder(folderName string){
 		}
 	}
 }
-// ---------------------------------------------------------------- INSERT IN DATABASE ----------------------------------------------------------------
-func databaseConnection(dataPairs []string){
-	connectionString := "host=" + host + " port=" + port + " user=" + user + " password=" + password + " dbname=" + dbname + " sslmode=disable"
-	db, err := sql.Open("postgres", connectionString)
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
 
+func connectDB()(db *sql.DB){
+	connectionString := "host=" + host + " port=" + port + " user=" + user + " password=" + password + " dbname=" + dbname + " sslmode=disable"
+		db, err := sql.Open("postgres", connectionString)
+		if err != nil {
+			panic(err)
+		}
+		// defer db.Close()
+	return db
+}
+
+func createTable(db *sql.DB){
 	sqlStat := "CREATE TABLE IF NOT EXISTS public.pairs (id SERIAL NOT NULL, altname character varying NOT NULL, wsname character varying, base character varying, quoteK character varying, PRIMARY KEY (id) ); ALTER TABLE IF EXISTS public.pairs OWNER to toto;"
 	_, errors := db.Exec(sqlStat)
 	if errors != nil {
-		fmt.Println(errors)
-	}
-
-	now := time.Now().Unix()
-	for _, data := range dataPairs {
-		// Insertion des données dans la base de données
-		altname := data[0]
-		wsname := data[1]
-		base := data[2]
-		quote := data[3]
-
-		sqlStatement := fmt.Sprintf("INSERT INTO pairs (id, altname, wsname, base, quoteK) VALUES (%d, '%s', '%s', '%s', '%s')", now, altname,wsname,base,quote)
-		_, err := db.Exec(sqlStatement)
-		if err != nil {
-			fmt.Println(err)
-		}
-		now++
+	fmt.Println(errors)
 	}
 }
-
 
 // }
 // func databaseView(){
@@ -185,8 +183,8 @@ func databaseConnection(dataPairs []string){
 
 func main() {
 	getStatus()
-	dataPairs := getPair()
-	databaseConnection(dataPairs)
+	getPair()
+	// databaseConnection(dataPairs)
 	// downloadFile()
 }
 

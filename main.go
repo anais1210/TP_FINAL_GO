@@ -60,9 +60,9 @@ func getPair(){
 	}
 	var listOfPairs []string
 	for _, i := range m.PairList {
-		listOfPairs = append(listOfPairs, i.Altname)
-
+		
 	}
+	fmt.Println(m.PairList)
 
 }
 func writeData(){

@@ -24,8 +24,6 @@ type Pair struct {
 	Wsname string `json:"wsname"`
 	Base string `json:"base"`
 	Quote string `json:"quote"`
-	CostDecimals string `json:"cost_decimals"`
-	PairDecimals string `json:"pair_decimals"`
 }
 
 type Pairs struct{
@@ -45,8 +43,7 @@ func getPair(){
 		return
 	}
 	//Write in file
-	
-	error := os.WriteFile("Archive/pairsKraken.csv", []byte(i.Altname), 0644)
+	error := os.WriteFile("Archive/pairsKraken.txt", body, 0644)
 	if error != nil {
 		panic(error)
 	}
@@ -58,11 +55,9 @@ func getPair(){
 		fmt.Printf("Error: %s", errors)
 		return
 	}
-	var listOfPairs []string
 	for _, i := range m.PairList {
-		
+		fmt.Println(i.Altname)
 	}
-	fmt.Println(m.PairList)
 
 }
 func writeData(){

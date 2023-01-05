@@ -36,6 +36,18 @@ type Pairs struct{
 	PairList map[string]Pair `json:"result"`
 }
 
+type AssetPrice struct {
+	ActualPrice  []string `json:"c"`
+	Volume       []string `json:"v"`
+	High         []string `json:"h"`
+	Low          []string `json:"l"`
+	OpeningPrice string   `json:"o"`
+}
+
+type AssetPrices struct {
+	FieldMap map[string]AssetPrice `json:"result"`
+}
+
 const (
 	host     = "localhost"
 	port     = "5432"
@@ -102,22 +114,46 @@ func getPair()([]string){
 	createTable(connection)
 
 	now := time.Now().Unix()
+	var altname []string 
 	for _, i := range m.PairList {
 		assetDatas = nil
+		altname = append(altname, i.Altname)
+
 		assetDatas = append(assetDatas, i.Altname, i.Wsname,i.Base, i.Quote)
 		if err := w.Write(assetDatas); err != nil {
 		log.Fatalln("error writing csv:", err)
 		}
-
-		sqlStatement := fmt.Sprintf("INSERT INTO pairs (id, altname, wsname, base, quoteK) VALUES (%d, '%s', '%s', '%s', '%s')", now, i.Altname, i.Wsname, i.Base,i.Quote)
-		_, err := connection.Exec(sqlStatement)
-		if err != nil {
-			fmt.Println(err)
-		}
+		// sqlStatement := fmt.Sprintf("INSERT INTO pairs (id, altname, wsname, base, quoteK) VALUES (%d, '%s', '%s', '%s', '%s')", now, i.Altname, i.Wsname, i.Base,i.Quote)
+		// _, err := connection.Exec(sqlStatement)
+		// if err != nil {
+		// 	fmt.Println(err)
+		// }
 		now++
 			
 	}
-	return assetDatas
+	return altname
+}
+func getAssetPrice(altnames []string){
+	for _, i := range altnames{
+		resp, err := http.Get(KrakenAPI + "/0/public/Ticker?pair="+i)
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			panic(err)
+		}
+		var assetPrice AssetPrices
+		errors := json.Unmarshal(body, &assetPrice)
+		if errors != nil {
+			// Handle the error
+			fmt.Printf("Error: %s", errors)
+			panic(errors)
+		}
+		fmt.Println(assetPrice)
+
+	}
 }
 func createFolder(folderName string){
 	if _, err := os.Stat(folderName); os.IsNotExist(err) {
@@ -127,7 +163,6 @@ func createFolder(folderName string){
 		}
 	}
 }
-
 func connectDB()(db *sql.DB){
 	connectionString := "host=" + host + " port=" + port + " user=" + user + " password=" + password + " dbname=" + dbname + " sslmode=disable"
 		db, err := sql.Open("postgres", connectionString)
@@ -143,6 +178,26 @@ func createTable(db *sql.DB){
 	_, errors := db.Exec(sqlStat)
 	if errors != nil {
 	fmt.Println(errors)
+	}
+}
+func selectDataFromDB(db *sql.DB)(){
+	rows, err := db.Query("SELECT altname, wsname, base, quotek FROM pairs")
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	var v1, v2, v3, v4 string
+	for rows.Next() {
+		err = rows.Scan(&v1, &v2, &v3, &v4)
+		if err != nil {
+			panic(err)
+		}
+		// fmt.Printf("%s, %s, %s, %s", v1, v2, v3, v4)
+	}
+	err = rows.Err()
+	if err != nil {
+		panic(err)
 	}
 }
 
@@ -182,8 +237,11 @@ func createTable(db *sql.DB){
 // }
 
 func main() {
-	getStatus()
-	getPair()
+	// getStatus()
+	altname :=getPair()
+	db := connectDB()
+	selectDataFromDB(db)
+	getAssetPrice(altname)
 	// databaseConnection(dataPairs)
 	// downloadFile()
 }

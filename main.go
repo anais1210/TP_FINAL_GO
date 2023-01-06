@@ -9,11 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"time"
-
-	"github.com/gorilla/mux"
 
 	_ "github.com/lib/pq"
 )
@@ -138,20 +135,24 @@ func getPair()([]string){
 	for _, i := range m.PairList {
 		assetDatas = nil
 		altname = append(altname, i.Altname)
-		go func(){
+		// go func(){
+
 			assetDatas = append(assetDatas, i.Altname, i.Wsname,i.Base, i.Quote)
 			if err := w.Write(assetDatas); err != nil {
 			log.Fatalln("error writing csv:", err)
 			}
-		}()
-		go func(){
+
+		// }()
+		// go func(){
+
 			sqlStatement := fmt.Sprintf("INSERT INTO pairs (id, altname, wsname, base, quoteK) VALUES (%d, '%s', '%s', '%s', '%s')", now, i.Altname, i.Wsname, i.Base,i.Quote)
 			_, err := connection.Exec(sqlStatement)
 			if err != nil {
 				fmt.Println(err)
 			}
 		now++
-		}()
+
+		// }()
 			
 	}
 	return altname
@@ -256,59 +257,55 @@ func selectDataFromDB(db *sql.DB)(){
 		panic(err)
 	}
 }
-func displayDatas(db *sql.DB)func (w http.ResponseWriter, r *http.Request) {
-    return func (w http.ResponseWriter, r *http.Request) {
-        datas:=json.NewEncoder(w).Encode(db.QueryRow("SELECT * from pairsprice"))
-		var content strings.Builder
-		content.WriteString(fmt.Sprintf("Ticker info : %s\n",datas))
-		w.Header().Set("Content-Type", "text/plain")	
-		w.Write([]byte(content.String()))
-		fmt.Println(reflect.TypeOf(datas))
-    }
-}
-		// file, err := os.Open("Archives/assetsPrice.csv")
-	
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		// defer file.Close()
-	
-		// reader := csv.NewReader(file)
-		// listDatas, err := reader.ReadAll()
-		// if(err != nil){
-		// 	panic(err)
-		// }
-		// for _, dataDB:= range listDatas{
-		// 	var content strings.Builder
-		// 	altname := dataDB[0]
-		// 	lastTradePrice := dataDB[1]
-		// 	lastTradeVolume := dataDB[2]
-		// 	volume := dataDB[3]
-		// 	avgPrice := dataDB[4]
-		// 	high := dataDB[5]
-		// 	low := dataDB[6]
-		// 	openingPrice := dataDB[7]
-		// 	content.WriteString(fmt.Sprintf("Altname : %s\n",altname))
-		// 	content.WriteString(fmt.Sprintf("LastTradePrice : %s\n",lastTradePrice))
-		// 	content.WriteString(fmt.Sprintf("LastTradeVolume : %s\n",lastTradeVolume))
-		// 	content.WriteString(fmt.Sprintf("Volume : %s\n",volume))
-		// 	content.WriteString(fmt.Sprintf("Average Price : %s\n",avgPrice))
-		// 	content.WriteString(fmt.Sprintf("Highest : %s\n",high))
-		// 	content.WriteString(fmt.Sprintf("Lowest : %s\n",low))
-		// 	content.WriteString(fmt.Sprintf("Today opening price : %s\n",openingPrice))
-			// w.Header().Set("Content-Type", "text/plain")	
-			// w.Write([]byte(content.String()))
-			
-// }
+func displayDatas(db *sql.DB){
 
-func databaseView(){
+// func (w http.ResponseWriter, r *http.Request) {
+//     return func (w http.ResponseWriter, r *http.Request) {
+//         datas:=json.NewEncoder(w).Encode(db.QueryRow("SELECT * from pairsprice"))
+// 		var content strings.Builder
+// 		content.WriteString(fmt.Sprintf("Ticker info : %s\n",datas))
+// 		w.Header().Set("Content-Type", "text/plain")	
+// 		w.Write([]byte(content.String()))
+// 		fmt.Println(reflect.TypeOf(datas))
+//     }
+// }
 	http.HandleFunc("/database", func(w http.ResponseWriter, r *http.Request) {
-		
-		w.Header().Set("Content-Type", "text/plain")
-		// w.Header().Set("Content-Disposition", `attachment; filename="pairsKraken.csv"`)
-		
+
+		file, err := os.Open("Archives/assetsPrice.csv")
+	
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+	
+		reader := csv.NewReader(file)
+		listDatas, err := reader.ReadAll()
+		if(err != nil){
+			panic(err)
+		}
+		for _, dataDB:= range listDatas{
+			var content strings.Builder
+			altname := dataDB[0]
+			lastTradePrice := dataDB[1]
+			lastTradeVolume := dataDB[2]
+			volume := dataDB[3]
+			avgPrice := dataDB[4]
+			high := dataDB[5]
+			low := dataDB[6]
+			openingPrice := dataDB[7]
+			content.WriteString(fmt.Sprintf("Altname : %s\n",altname))
+			content.WriteString(fmt.Sprintf("LastTradePrice : %s\n",lastTradePrice))
+			content.WriteString(fmt.Sprintf("LastTradeVolume : %s\n",lastTradeVolume))
+			content.WriteString(fmt.Sprintf("Volume : %s\n",volume))
+			content.WriteString(fmt.Sprintf("Average Price : %s\n",avgPrice))
+			content.WriteString(fmt.Sprintf("Highest : %s\n",high))
+			content.WriteString(fmt.Sprintf("Lowest : %s\n",low))
+			content.WriteString(fmt.Sprintf("Today opening price : %s\n",openingPrice))
+			w.Header().Set("Content-Type", "text/plain")	
+			w.Write([]byte(content.String()))
+			
+		}
 	})
-	http.ListenAndServe(":8080", nil)
 }
 
 func downloadFile(){
@@ -330,18 +327,16 @@ func sortTickers(){
 
 }
 func main() {
-	// getStatus()
-	// altname :=getPair()
+	getStatus()
+	altname :=getPair()
 	db := connectDB()
-	// selectDataFromDB(db)
-	// getAssetPrice(altname) 
+	selectDataFromDB(db)
+	getAssetPrice(altname) 
 	// go func(){
-		router := mux.NewRouter()
-
-		router.HandleFunc("/database", displayDatas(db)).Methods("GET")
-	
-		log.Fatal(http.ListenAndServe(":8080", router))
-		// displayDatas(db)
+	// router := mux.NewRouter()
+	// router.HandleFunc("/database", displayDatas(db)).Methods("GET")
+	// log.Fatal(http.ListenAndServe(":8080", router))
+		displayDatas(db)
 	// }()
 	// go func(){
 		downloadFile()

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -48,7 +49,18 @@ type AssetPrice struct {
 type AssetPrices struct {
 	FieldMap map[string]AssetPrice `json:"result"`
 }
+type DBstruct struct{
+	Altname string
+	LastTradePrice string
+	LastTradeVolume string
+	Volume string
+	AvgPrice string
+	High string
+	Low string
+	OpeningPrice string
 
+
+}
 const (
 	host     = "localhost"
 	port     = "5432"
@@ -162,7 +174,7 @@ func getAssetPrice(altnames []string){
 		if err != nil {
 			log.Fatalln("failed to open file", err)
 		}
-		header := []string{"LastTradePrice", "LastTradeVolume", "Volume", "AvgPrice", "High", "Low", "OpeningPrice"}
+		header := []string{"Altname","LastTradePrice", "LastTradeVolume", "Volume", "AvgPrice", "High", "Low", "OpeningPrice"}
 		w := csv.NewWriter(file)
 		defer w.Flush()
 		if err := w.Write(header); err != nil {
@@ -177,11 +189,11 @@ func getAssetPrice(altnames []string){
 		log.Fatalln("error writing csv:", err)
 		}
 
-		sqlStatement := fmt.Sprintf("INSERT INTO pairsPrice (id, altname,lastTradePrice, lastTradeVolume, volume, avgPrice, high, low, openingPrice) VALUES (%d, '%s','%s', '%s', '%s', '%s','%s', '%s', '%s')", now,i, assetPrice.FieldMap[i].LastTrade[0],assetPrice.FieldMap[i].LastTrade[1], assetPrice.FieldMap[i].Volume[0], assetPrice.FieldMap[i].AvgPrice[0], assetPrice.FieldMap[i].High[0], assetPrice.FieldMap[i].Low[0], assetPrice.FieldMap[i].OpeningPrice)
-		_, error := connection.Exec(sqlStatement)
-		if error != nil {
-			fmt.Println(error)
-		}
+		// sqlStatement := fmt.Sprintf("INSERT INTO pairsPrice (id, altname,lastTradePrice, lastTradeVolume, volume, avgPrice, high, low, openingPrice) VALUES (%d, '%s','%s', '%s', '%s', '%s','%s', '%s', '%s')", now,i, assetPrice.FieldMap[i].LastTrade[0],assetPrice.FieldMap[i].LastTrade[1], assetPrice.FieldMap[i].Volume[0], assetPrice.FieldMap[i].AvgPrice[0], assetPrice.FieldMap[i].High[0], assetPrice.FieldMap[i].Low[0], assetPrice.FieldMap[i].OpeningPrice)
+		// _, error := connection.Exec(sqlStatement)
+		// if error != nil {
+		// 	fmt.Println(error)
+		// }
 		now++
 	}
 }
@@ -236,53 +248,97 @@ func selectDataFromDB(db *sql.DB)(){
 		panic(err)
 	}
 }
+func displayDatas(){
+	http.HandleFunc("/database", func(w http.ResponseWriter, r *http.Request) {
+		file, err := os.Open("Archives/assetsPrice.csv")
+	
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+	
+		reader := csv.NewReader(file)
+		listDatas, err := reader.ReadAll()
+		if(err != nil){
+			panic(err)
+		}
+		// var datasDB []DBstruct
+		// for _, dataDB:= range listDatas{
+		// 	Altname := dataDB[0]
+		// 	LastTradePrice := dataDB[1]
+		// 	LastTradeVolume := dataDB[2]
+		// 	Volume := dataDB[3]
+		// 	AvgPrice := dataDB[4]
+		// 	High := dataDB[5]
+		// 	Low := dataDB[6]
+		// 	OpeningPrice := dataDB[7]
 
-// }
-// func databaseView(){
-// 	http.HandleFunc("/database", func(w http.ResponseWriter, r *http.Request) {
+			// data:=DBstruct{Altname, LastTradePrice, LastTradeVolume, Volume, AvgPrice, High, Low, OpeningPrice}
+			// fmt.Println(data.Altname)
+			
+		// }
+		for _, dataDB:= range listDatas{
+			var content strings.Builder
+			altname := dataDB[0]
+			lastTradePrice := dataDB[1]
+			lastTradeVolume := dataDB[2]
+			volume := dataDB[3]
+			avgPrice := dataDB[4]
+			high := dataDB[5]
+			low := dataDB[6]
+			openingPrice := dataDB[7]
+			content.WriteString(fmt.Sprintf("Altname : %s\n",altname))
+			content.WriteString(fmt.Sprintf("LastTradePrice : %s\n",lastTradePrice))
+			content.WriteString(fmt.Sprintf("LastTradeVolume : %s\n",lastTradeVolume))
+			content.WriteString(fmt.Sprintf("Volume : %s\n",volume))
+			content.WriteString(fmt.Sprintf("Average Price : %s\n",avgPrice))
+			content.WriteString(fmt.Sprintf("Highest : %s\n",high))
+			content.WriteString(fmt.Sprintf("Lowest : %s\n",low))
+			content.WriteString(fmt.Sprintf("Today opening price : %s\n",openingPrice))
+			w.Header().Set("Content-Type", "text/plain")	
+			w.Write([]byte(content.String()))
+		}
+	})
+	http.ListenAndServe(":8080", nil)
+}
+
+func databaseView(){
+	http.HandleFunc("/database", func(w http.ResponseWriter, r *http.Request) {
 		
-// 		w.Header().Set("Content-Type", "text/plain")
-// 		w.Header().Set("Content-Disposition", `attachment; filename="pairsKraken.csv"`)
+		w.Header().Set("Content-Type", "text/plain")
+		// w.Header().Set("Content-Disposition", `attachment; filename="pairsKraken.csv"`)
 		
-// 	})
-// 	http.ListenAndServe(":8080", nil)
-// }
+	})
+	http.ListenAndServe(":8080", nil)
+}
 
-// func downloadFile(){
-// 	http.HandleFunc("/download", func(w http.ResponseWriter, r *http.Request) {
-// 		file, err := os.Open("Archive/pairsKraken.csv")
-// 		if err != nil {
-// 			panic(err)
-// 		}
-// 		defer file.Close()
+func downloadFile(){
+	http.HandleFunc("/download", func(w http.ResponseWriter, r *http.Request) {
 
-// 		reader := csv.NewReader(file)
-// 		dataPairs, err := reader.ReadAll()
-// 		if err != nil {
-// 			panic(err)
-// 		}
-
-// 		w.Header().Set("Content-Type", "text/plain")
-// 		w.Header().Set("Content-Disposition", `attachment; filename="pairsKraken.csv"`)
-
-// 		writer := csv.NewWriter(os.Stdout)
-// 		writer.WriteAll(dataPairs)
+		file, err := os.Open("./Archives/assetsPrice.csv")
+		if err != nil {
+			http.Error(w, "Cannot open file", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Disposition", `attachment; filename="./Archives/pairsKraken.csv"`)
 		
-// 	})
-// 	http.ListenAndServe(":8080", nil)
-// }
+	})
+	http.ListenAndServe(":8080", nil)
+}
 
 func main() {
 	// getStatus()
-	altname :=getPair()
-	db := connectDB()
-	selectDataFromDB(db)
-	getAssetPrice(altname)
+	// altname :=getPair()
+	// db := connectDB()
+	// selectDataFromDB(db)
+	// getAssetPrice(altname) 
 	// databaseConnection(dataPairs)
-	// downloadFile()
+	// go func(){
+		displayDatas()
+	// 	}()
+	// go func(){
+		// downloadFile()
+		// }()
 }
-
-
-
-//nom du fichier change en fonction de la date
-//load env package
